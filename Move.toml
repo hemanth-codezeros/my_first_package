@@ -4,6 +4,8 @@ version = "0.0.0"
 
 [dependencies]
 MoveStdlib = { git = "https://github.com/move-language/move.git", subdir = "language/move-stdlib", rev = "main" }
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "devnet" }
 
 [addresses]
 std =  "0x1"
+Hem_Acc = "0x9ed87d4454640d7bdc2fb874f4a2926c0f87fd346bef772e0d013690502ab643"

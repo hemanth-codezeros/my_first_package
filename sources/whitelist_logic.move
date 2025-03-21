@@ -1,4 +1,4 @@
-module MyProject::whitelist_deposit {
+module Hem_Acc::whitelist_deposit {
     use std::signer;
     use std::vector;
     use aptos_framework::account;
@@ -28,8 +28,8 @@ module MyProject::whitelist_deposit {
         deposit_events: event::EventHandle<DepositEvent>,
     }
 
-    // Initialize the contract
-    public fun initialize(admin: &signer) {
+    // Initializing the contract
+    public entry fun initialize(admin: &signer) {
         // Create a resource account for storing funds
         let (resource_signer, resource_signer_cap) = account::create_resource_account(admin, b"fund_storage");
         let fund_storage = FundStorage {
@@ -48,16 +48,16 @@ module MyProject::whitelist_deposit {
 
     // Add an address to the whitelist (admin-only)
     public entry fun add_to_whitelist(admin: &signer, address: address) acquires Whitelist {
-        assert!(signer::address_of(admin) == @MyProject, "Only admin can perform this action");
-        let whitelist = borrow_global_mut<Whitelist>(@MyProject);
+        assert!(signer::address_of(admin) == @Hem_Acc, "Only admin can perform this action");
+        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
         vector::push_back(&mut whitelist.addresses, address);
         event::emit_event(&mut whitelist.whitelist_events, WhitelistEvent { address, added: true });
     }
 
     // Remove an address from the whitelist (admin-only)
     public entry fun remove_from_whitelist(admin: &signer, address: address) acquires Whitelist {
-        assert!(signer::address_of(admin) == @MyProject, "Only admin can perform this action");
-        let whitelist = borrow_global_mut<Whitelist>(@MyProject);
+        assert!(signer::address_of(admin) == @Hem_Acc, "Only admin can perform this action");
+        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
         let index = vector::index_of(&whitelist.addresses, &address);
         vector::remove(&mut whitelist.addresses, index);
         event::emit_event(&mut whitelist.whitelist_events, WhitelistEvent { address, added: false });
@@ -65,8 +65,8 @@ module MyProject::whitelist_deposit {
 
     // Bulk add addresses to the whitelist (admin-only)
     public entry fun bulk_add_to_whitelist(admin: &signer, addresses: vector<address>) acquires Whitelist {
-        assert!(signer::address_of(admin) == @MyProject, "Only admin can perform this action");
-        let whitelist = borrow_global_mut<Whitelist>(@MyProject);
+        assert!(signer::address_of(admin) == @Hem_Acc, "Only admin can perform this action");
+        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
         let i = 0;
         while (i < vector::length(&addresses)) {
             let address = *vector::borrow(&addresses, i);
@@ -78,8 +78,8 @@ module MyProject::whitelist_deposit {
 
     // Bulk remove addresses from the whitelist (admin-only)
     public entry fun bulk_remove_from_whitelist(admin: &signer, addresses: vector<address>) acquires Whitelist {
-        assert!(signer::address_of(admin) == @MyProject, "Only admin can perform this action");
-        let whitelist = borrow_global_mut<Whitelist>(@MyProject);
+        assert!(signer::address_of(admin) == @Hem_Acc, "Only admin can perform this action");
+        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
         let i = 0;
         while (i < vector::length(&addresses)) {
             let address = *vector::borrow(&addresses, i);
@@ -90,34 +90,42 @@ module MyProject::whitelist_deposit {
         }
     }
 
-    // Deposit funds (only for whitelisted addresses)
+
+
+
+    // Transact logic to deposit and remove funds from resource account for whitlisted accounts
+
+
+      // Deposit funds (only for whitelisted addresses)
     public entry fun deposit(depositor: &signer, amount: u64) acquires Whitelist, FundStorage {
         let depositor_address = signer::address_of(depositor);
-        let whitelist = borrow_global<Whitelist>(@MyProject);
+        let whitelist = borrow_global<Whitelist>(@Hem_Acc);
         assert!(vector::contains(&whitelist.addresses, &depositor_address), "Address not whitelisted");
 
-        let fund_storage = borrow_global_mut<FundStorage>(@MyProject);
+        let fund_storage = borrow_global_mut<FundStorage>(@Hem_Acc);
         fund_storage.balance = fund_storage.balance + amount;
         event::emit_event(&mut fund_storage.deposit_events, DepositEvent { depositor: depositor_address, amount });
     }
 
     // Withdraw funds (admin-only)
     public entry fun withdraw(admin: &signer, amount: u64) acquires FundStorage {
-        assert!(signer::address_of(admin) == @MyProject, "Only admin can perform this action");
-        let fund_storage = borrow_global_mut<FundStorage>(@MyProject);
+        assert!(signer::address_of(admin) == @Hem_Acc, "Only admin can perform this action");
+        let fund_storage = borrow_global_mut<FundStorage>(@Hem_Acc);
         assert!(fund_storage.balance >= amount, "Insufficient balance");
         fund_storage.balance = fund_storage.balance - amount;
     }
 
+    
+
     // View function to check if an address is whitelisted
     public fun is_whitelisted(address: address): bool acquires Whitelist {
-        let whitelist = borrow_global<Whitelist>(@MyProject);
+        let whitelist = borrow_global<Whitelist>(@Hem_Acc);
         vector::contains(&whitelist.addresses, &address)
     }
 
     // View function to get the current balance
     public fun get_balance(): u64 acquires FundStorage {
-        let fund_storage = borrow_global<FundStorage>(@MyProject);
+        let fund_storage = borrow_global<FundStorage>(@Hem_Acc);
         fund_storage.balance
     }
 }
