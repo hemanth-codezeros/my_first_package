@@ -344,3 +344,4 @@ build/my_first_package/sources/dependencies/MoveStdlib/signer.move
 build/my_first_package/sources/dependencies/MoveStdlib/string.move
 build/my_first_package/sources/dependencies/MoveStdlib/vector.move
 build/my_first_package/BuildInfo.yaml
+result.txt

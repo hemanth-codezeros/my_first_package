@@ -4,14 +4,14 @@ module Hem_Acc::whitelist_deposit {
     use aptos_framework::account;
     use aptos_framework::event;
 
-    const INSUFFICIENT_BALANCE: u64 = 41;
-    const ADMIN_ONLY_ACTION: u64 = 42;
-    const NOT_WHITELISTED: u64 = 43;
+    const INSUFFICIENT_BALANCE: u64 = 1001;
+    const ADMIN_ONLY_ACTION: u64 = 1002;
+    const NOT_WHITELISTED: u64 = 1003;
 
 
     // Resource to store whitelisted addresses
     struct Whitelist has key {
-        addresses: vector<address>,
+        addresses: vector<address>, // only whitelisted addresses
         whitelist_events: event::EventHandle<WhitelistEvent>,
     }
 
@@ -22,6 +22,7 @@ module Hem_Acc::whitelist_deposit {
         withdraw_events: event::EventHandle<WithdrawEvent>,
     }
 
+    // Fund for each user
     struct UserFund has store {
         balance: u64,
         address: address,
@@ -66,7 +67,7 @@ module Hem_Acc::whitelist_deposit {
 
     // Add an address to the whitelist (admin-only)
     public entry fun add_to_whitelist(admin: &signer, address: address) acquires Whitelist {
-        assert!(signer::address_of(admin) == @Hem_Acc,ADMIN_ONLY_ACTION);
+        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
         let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
         vector::push_back(&mut whitelist.addresses, address);
         event::emit_event(&mut whitelist.whitelist_events, WhitelistEvent { address, added: true });
@@ -116,7 +117,6 @@ module Hem_Acc::whitelist_deposit {
         assert!(vector::contains(&whitelist.addresses, &depositor_address), NOT_WHITELISTED);
 
         let fund_storage = borrow_global_mut<FundStorage>(@Hem_Acc);
-        // let user_funds =  fund_storage.user_funds;
         let i : u64= 0;
         let length = vector::length(&fund_storage.user_funds);
         while (i < length) {
@@ -134,9 +134,6 @@ module Hem_Acc::whitelist_deposit {
     public entry fun withdraw(admin: &signer, amount: u64, withdraw_address: address) acquires FundStorage {
         assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
         let fund_storage = borrow_global_mut<FundStorage>(@Hem_Acc);
-        // assert!(fund_storage.balance <= amount, "Insufficient balance");
-        // let user_funds =  fund_storage.user_funds;
-
         let i = 0;
         let length = vector::length(&fund_storage.user_funds);
         while (i < length) {
@@ -155,7 +152,6 @@ module Hem_Acc::whitelist_deposit {
     public entry fun transfer_funds(admin: &signer, withdraw_address: address, depositor_address: address, amount: u64) acquires FundStorage {
         assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
         let fund_storage = borrow_global_mut<FundStorage>(@Hem_Acc);
-        // let user_funds =  fund_storage.user_funds;
         let i = 0;
         let length = vector::length(&fund_storage.user_funds);
         while (i < length) {
@@ -183,7 +179,6 @@ module Hem_Acc::whitelist_deposit {
     // View function to get the current balance
     public fun get_balance(address: address): u64 acquires FundStorage {
         let fund_storage = borrow_global<FundStorage>(@Hem_Acc);
-        // let user_funds =  fund_storage.user_funds;
         let i : u64 = 0;
         let length = vector::length(&fund_storage.user_funds);
         let result: u64 = 0 ;
