@@ -186,6 +186,7 @@ module Hem_Acc::whitelist_deposit {
             let element = vector::borrow(&fund_storage.user_funds, i);
             if (address == element.address){
                 result = element.balance;
+                break;
             };
         };
         result
