@@ -2,7 +2,6 @@ module Hem_Acc::whitelist_deposit {
     use std::signer;
     use std::vector;
     use aptos_framework::account;
-    use aptos_framework::event;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
 
@@ -66,7 +65,7 @@ module Hem_Acc::whitelist_deposit {
     }
 
     // Initializing the contract
-    public entry fun initialize(admin: &signer) {
+    fun init_module(admin: &signer) {
         // Creating a resource account for storing funds
         let (resource_signer, resource_signer_cap) =
             account::create_resource_account(admin, SEED_FOR_RESOURCE_ACCOUNT);
