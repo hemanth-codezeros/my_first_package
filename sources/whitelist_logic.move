@@ -38,11 +38,6 @@ module Hem_Acc::whitelist_deposit {
         address: address
     }
 
-    // Create & store the SignerCapability for later use
-    struct ResourceCapabilityHolder has key {
-        signer_cap: account::SignerCapability
-    }
-
     // Event for logging whitelist modifications
     #[event]
     struct WhitelistEvent has drop, store {
@@ -67,11 +62,8 @@ module Hem_Acc::whitelist_deposit {
     // Initializing the contract
     fun init_module(admin: &signer) {
         // Creating a resource account for storing funds
-        let (resource_signer, resource_signer_cap) =
+        let (resource_signer, _resource_signer_cap) =
             account::create_resource_account(admin, SEED_FOR_RESOURCE_ACCOUNT);
-
-        // Store the SignerCapability in the admin's account
-        move_to(admin, ResourceCapabilityHolder { signer_cap: resource_signer_cap });
 
         let fund_storage = FundStorage {
             user_funds: vector::empty<UserFund<AptosCoin>>()
@@ -164,9 +156,7 @@ module Hem_Acc::whitelist_deposit {
 
     // Transact logic to deposit funds from resource account for whitlisted accounts
     // Deposit funds (only for whitelisted addresses)
-    public entry fun deposit(
-        depositor: &signer, amount: u64
-    ) acquires Whitelist, FundStorage, ResourceCapabilityHolder {
+    public entry fun deposit(depositor: &signer, amount: u64) acquires Whitelist, FundStorage {
         let depositor_address = signer::address_of(depositor);
         let whitelist = borrow_global<Whitelist>(@Hem_Acc);
         assert!(
@@ -174,11 +164,7 @@ module Hem_Acc::whitelist_deposit {
             NOT_WHITELISTED
         );
 
-        let signer_cap = &borrow_global<ResourceCapabilityHolder>(@Hem_Acc).signer_cap;
-        let resource_signer = account::create_signer_with_capability(signer_cap);
-
-        let fund_storage =
-            borrow_global_mut<FundStorage>(signer::address_of(&resource_signer));
+        let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
         let coins_to_deposit = coin::withdraw<AptosCoin>(depositor, amount);
 
         let index = find_user_fund_index(&fund_storage.user_funds, depositor_address);
@@ -203,17 +189,17 @@ module Hem_Acc::whitelist_deposit {
 
     }
 
+    fun get_fund_resource_account(): address {
+        account::create_resource_address(&@Hem_Acc, SEED_FOR_RESOURCE_ACCOUNT)
+    }
+
     // Withdraw funds (admin-only)
     public entry fun withdraw(
         admin: &signer, withdraw_amount: u64, withdraw_address: address
-    ) acquires FundStorage, ResourceCapabilityHolder {
+    ) acquires FundStorage {
         assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
 
-        let signer_cap = &borrow_global<ResourceCapabilityHolder>(@Hem_Acc).signer_cap;
-        let resource_signer = account::create_signer_with_capability(signer_cap);
-
-        let fund_storage =
-            borrow_global_mut<FundStorage>(signer::address_of(&resource_signer));
+        let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
         let index = find_user_fund_index(&fund_storage.user_funds, withdraw_address);
 
         // Check if user has existing fund, or else send an error as no funds present
@@ -236,13 +222,10 @@ module Hem_Acc::whitelist_deposit {
         withdraw_address: address,
         depositor_address: address,
         amount: u64
-    ) acquires FundStorage, ResourceCapabilityHolder {
+    ) acquires FundStorage {
         assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
-        let signer_cap = &borrow_global<ResourceCapabilityHolder>(@Hem_Acc).signer_cap;
-        let resource_signer = account::create_signer_with_capability(signer_cap);
 
-        let fund_storage =
-            borrow_global_mut<FundStorage>(signer::address_of(&resource_signer));
+        let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
 
         let withdrawindex =
             find_user_fund_index(&fund_storage.user_funds, withdraw_address);
@@ -272,12 +255,9 @@ module Hem_Acc::whitelist_deposit {
 
     // View function to get the current balance
     #[view]
-    public fun get_balance(address: address): u64 acquires FundStorage, ResourceCapabilityHolder {
-        let signer_cap = &borrow_global<ResourceCapabilityHolder>(@Hem_Acc).signer_cap;
-        let resource_signer = account::create_signer_with_capability(signer_cap);
+    public fun get_balance(address: address): u64 acquires FundStorage {
 
-        let fund_storage =
-            borrow_global_mut<FundStorage>(signer::address_of(&resource_signer));
+        let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
         let i: u64 = 0;
         let length = vector::length(&fund_storage.user_funds);
         let result: u64 = 0;
