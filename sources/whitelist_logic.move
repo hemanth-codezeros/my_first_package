@@ -107,16 +107,15 @@ module hem_acc::whitelist_deposit {
     ) acquires Whitelist {
         assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
         let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
-        let i = 0;
-        let length = vector::length(&addresses);
 
-        while (i < length) {
-            let address: address = vector::pop_back(&mut addresses);
-            vector::push_back(&mut whitelist.addresses, address);
-            let event = WhitelistEvent { address, added: true };
-            0x1::event::emit(event);
-            i = i + 1;
-        }
+        vector::for_each(
+            addresses,
+            |e| {
+                vector::push_back(&mut whitelist.addresses, e);
+                let event = WhitelistEvent { address: e, added: true };
+                0x1::event::emit(event);
+            }
+        );
     }
 
     // Bulk remove addresses from the whitelist (admin-only)
@@ -125,17 +124,17 @@ module hem_acc::whitelist_deposit {
     ) acquires Whitelist {
         assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
         let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
-        let i = 0;
-        let length = vector::length(&addresses);
-        while (i < length) {
-            let address = vector::pop_back(&mut addresses);
-            let (exists, index) = vector::index_of(&whitelist.addresses, &address);
-            assert!(exists, NOT_PRESENT_IN_WHITELISTED);
-            vector::remove(&mut whitelist.addresses, index);
-            let event = WhitelistEvent { address, added: false };
-            0x1::event::emit(event);
-            i = i + 1;
-        }
+
+        vector::for_each(
+            addresses,
+            |e| {
+                let (exists, index) = vector::index_of(&whitelist.addresses, &e);
+                assert!(exists, NOT_PRESENT_IN_WHITELISTED);
+                vector::remove(&mut whitelist.addresses, index);
+                let event = WhitelistEvent { address: e, added: false };
+                0x1::event::emit(event);
+            }
+        );
     }
 
     // Helper function to find index of an address of a user
@@ -144,6 +143,15 @@ module hem_acc::whitelist_deposit {
     ): u64 {
         let i = 0;
         let len = vector::length(user_funds);
+
+        // vector::enumerate_ref(
+        //     user_funds,
+        //     |i, e| {
+        //         if (e.address == user_addr) {
+        //             return i
+        //         };
+        //     }
+        // );
 
         while (i < len) {
             let user_fund = vector::borrow(user_funds, i);
@@ -272,6 +280,7 @@ module hem_acc::whitelist_deposit {
         let i: u64 = 0;
         let length = vector::length(&fund_storage.user_funds);
         let result: u64 = 0;
+
         while (i < length) {
             let element = vector::borrow(&fund_storage.user_funds, i);
             if (address == element.address) {
@@ -315,6 +324,7 @@ module hem_acc::whitelist_deposit {
         vector::push_back(&mut vec, random_address2);
         vector::push_back(&mut vec, random_address3);
         vector::push_back(&mut vec, random_address4);
+
         bulk_add_to_whitelist(&arg, copy vec);
         vector::pop_back(&mut vec);
         vector::pop_back(&mut vec);
