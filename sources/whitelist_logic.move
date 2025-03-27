@@ -1,8 +1,8 @@
-module Hem_Acc::whitelist_deposit {
+module hem_acc::whitelist_deposit {
     use std::signer;
     use std::vector;
-    use std::debug;
-    use std::string;
+    // use std::debug;
+    // use std::string;
     use aptos_framework::account;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
@@ -81,8 +81,8 @@ module Hem_Acc::whitelist_deposit {
 
     // Add an address to the whitelist (admin-only)
     public entry fun add_to_whitelist(admin: &signer, address: address) acquires Whitelist {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
-        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
+        let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
         vector::push_back(&mut whitelist.addresses, address);
         let event = WhitelistEvent { address, added: true };
         0x1::event::emit(event);
@@ -92,8 +92,8 @@ module Hem_Acc::whitelist_deposit {
     public entry fun remove_from_whitelist(
         admin: &signer, address: address
     ) acquires Whitelist {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
-        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
+        let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
         let (exists, index) = vector::index_of(&whitelist.addresses, &address);
         assert!(exists, NOT_PRESENT_IN_WHITELISTED);
         vector::remove(&mut whitelist.addresses, index);
@@ -105,8 +105,8 @@ module Hem_Acc::whitelist_deposit {
     public entry fun bulk_add_to_whitelist(
         admin: &signer, addresses: vector<address>
     ) acquires Whitelist {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
-        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
+        let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
         let i = 0;
         let length = vector::length(&addresses);
 
@@ -123,8 +123,8 @@ module Hem_Acc::whitelist_deposit {
     public entry fun bulk_remove_from_whitelist(
         admin: &signer, addresses: vector<address>
     ) acquires Whitelist {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
-        let whitelist = borrow_global_mut<Whitelist>(@Hem_Acc);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
+        let whitelist = borrow_global_mut<Whitelist>(@hem_acc);
         let i = 0;
         let length = vector::length(&addresses);
         while (i < length) {
@@ -160,7 +160,7 @@ module Hem_Acc::whitelist_deposit {
     // Deposit funds (only for whitelisted addresses)
     public entry fun deposit(depositor: &signer, amount: u64) acquires Whitelist, FundStorage {
         let depositor_address = signer::address_of(depositor);
-        let whitelist = borrow_global<Whitelist>(@Hem_Acc);
+        let whitelist = borrow_global<Whitelist>(@hem_acc);
         assert!(
             vector::contains(&whitelist.addresses, &depositor_address),
             NOT_WHITELISTED
@@ -192,14 +192,14 @@ module Hem_Acc::whitelist_deposit {
     }
 
     fun get_fund_resource_account(): address {
-        account::create_resource_address(&@Hem_Acc, SEED_FOR_RESOURCE_ACCOUNT)
+        account::create_resource_address(&@hem_acc, SEED_FOR_RESOURCE_ACCOUNT)
     }
 
     // Withdraw funds (admin-only)
     public entry fun withdraw(
         admin: &signer, withdraw_amount: u64, withdraw_address: address
     ) acquires FundStorage {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
 
         let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
         let index = find_user_fund_index(&fund_storage.user_funds, withdraw_address);
@@ -225,7 +225,7 @@ module Hem_Acc::whitelist_deposit {
         depositor_address: address,
         amount: u64
     ) acquires FundStorage {
-        assert!(signer::address_of(admin) == @Hem_Acc, ADMIN_ONLY_ACTION);
+        assert!(signer::address_of(admin) == @hem_acc, ADMIN_ONLY_ACTION);
 
         let fund_storage = borrow_global_mut<FundStorage>(get_fund_resource_account());
 
@@ -235,15 +235,24 @@ module Hem_Acc::whitelist_deposit {
             find_user_fund_index(&fund_storage.user_funds, depositor_address);
 
         let element = vector::borrow_mut(&mut fund_storage.user_funds, withdrawindex);
-        assert!(coin::value(&element.balance) <= amount, INSUFFICIENT_BALANCE);
+        assert!(coin::value(&element.balance) >= amount, INSUFFICIENT_BALANCE);
         let coins = coin::extract(&mut element.balance, amount);
         let event = WithdrawEvent { withdraw_address: withdraw_address, amount };
         0x1::event::emit(event);
 
-        let deposit_element = vector::borrow_mut(
-            &mut fund_storage.user_funds, depositindex
-        );
-        coin::merge(&mut deposit_element.balance, coins);
+        if (depositindex == vector::length(&fund_storage.user_funds)) {
+            // Even though account is whitelisted, its coin account hasn't been initiated.
+            vector::push_back(
+                &mut fund_storage.user_funds,
+                UserFund<AptosCoin> { balance: coins, address: depositor_address }
+            );
+        } else {
+            let deposit_element = vector::borrow_mut(
+                &mut fund_storage.user_funds, depositindex
+            );
+            coin::merge(&mut deposit_element.balance, coins);
+        };
+
         let eventx = DepositEvent { depositor: depositor_address, amount };
         0x1::event::emit(eventx);
     }
@@ -251,7 +260,7 @@ module Hem_Acc::whitelist_deposit {
     // View function to check if an address is whitelisted
     #[view]
     public fun is_whitelisted(address: address): bool acquires Whitelist {
-        let whitelist = borrow_global<Whitelist>(@Hem_Acc);
+        let whitelist = borrow_global<Whitelist>(@hem_acc);
         vector::contains(&whitelist.addresses, &address)
     }
 
@@ -274,7 +283,7 @@ module Hem_Acc::whitelist_deposit {
         result
     }
 
-    #[test(arg = @Hem_Acc)]
+    #[test(arg = @hem_acc)]
     fun add_addresses_to_whitelist(arg: signer) acquires Whitelist {
         init_module(&arg);
         let custom_address: address =
@@ -283,16 +292,18 @@ module Hem_Acc::whitelist_deposit {
         assert!(is_whitelisted(custom_address), 1);
     }
 
-    #[test(arg = @Hem_Acc)]
+    #[test(arg = @hem_acc)]
     fun remove_address_from_whitelist(arg: signer) acquires Whitelist {
         init_module(&arg);
         let custom_address: address =
             @0xb1f4c9f2d642d40de852b1bd68138143b95dfe8f8f3676adc7b8fd6f81a14441;
         add_to_whitelist(&arg, custom_address);
         remove_from_whitelist(&arg, custom_address);
+        assert!(!is_whitelisted(custom_address), 1);
+
     }
 
-    #[test(arg = @Hem_Acc)]
+    #[test(arg = @hem_acc)]
     fun bulk_adding_and_removing_addresses(arg: signer) acquires Whitelist {
         init_module(&arg);
         let random_address1 = @0x1234567890ABCDEF;
@@ -304,24 +315,24 @@ module Hem_Acc::whitelist_deposit {
         vector::push_back(&mut vec, random_address2);
         vector::push_back(&mut vec, random_address3);
         vector::push_back(&mut vec, random_address4);
-        debug::print(&vec);
         bulk_add_to_whitelist(&arg, copy vec);
         vector::pop_back(&mut vec);
         vector::pop_back(&mut vec);
 
-        let utf8_message = string::utf8(b"After popping back addresses");
-        debug::print(&utf8_message);
-        debug::print(&vec);
+        // let utf8_message = string::utf8(b"After popping back addresses");
 
         bulk_remove_from_whitelist(&arg, vec);
+        assert!(!is_whitelisted(random_address1), 1);
+        assert!(!is_whitelisted(random_address2), 1);
+
     }
 
-    #[test(arg = @Hem_Acc, framework = @aptos_framework)]
+    #[test(arg = @hem_acc, framework = @aptos_framework)]
     fun deposit_fund(arg: signer, framework: signer) acquires Whitelist, FundStorage {
         init_module(&arg);
         let random_address1 = @0x1234567890ABCDEF;
         let random_address2 = @0x9876543210FEDCBA;
-        let random_address3 = @Hem_Acc;
+        let random_address3 = @hem_acc;
 
         let vec = vector::empty<address>();
         vector::push_back(&mut vec, random_address1);
@@ -333,7 +344,31 @@ module Hem_Acc::whitelist_deposit {
         assert!(is_whitelisted(random_address2), 1);
         assert!(is_whitelisted(random_address3), 1);
 
+        let (burn, mint) = aptos_framework::aptos_coin::initialize_for_test(&framework);
+        let coin = coin::mint<AptosCoin>(1000000000, &mint);
+        account::create_account_for_test(signer::address_of(&arg));
+        coin::register<AptosCoin>(&arg);
+        coin::deposit(signer::address_of(&arg), coin);
 
+        deposit(&arg, 100);
+
+        coin::destroy_burn_cap(burn);
+        coin::destroy_mint_cap(mint);
+    }
+
+    #[test(arg = @hem_acc, framework = @aptos_framework)]
+    fun withdraw_fund(arg: signer, framework: signer) acquires Whitelist, FundStorage {
+        init_module(&arg);
+        let random_address2 = @0x9876543210FEDCBA;
+        let random_address3 = @hem_acc;
+
+        let vec = vector::empty<address>();
+        vector::push_back(&mut vec, random_address2);
+        vector::push_back(&mut vec, random_address3);
+        bulk_add_to_whitelist(&arg, copy vec);
+
+        assert!(is_whitelisted(random_address2), 1);
+        assert!(is_whitelisted(random_address3), 1);
 
         let (burn, mint) = aptos_framework::aptos_coin::initialize_for_test(&framework);
         let coin = coin::mint<AptosCoin>(1000000000, &mint);
@@ -342,6 +377,46 @@ module Hem_Acc::whitelist_deposit {
         coin::deposit(signer::address_of(&arg), coin);
 
         deposit(&arg, 100);
+
+        withdraw(&arg, 25, @hem_acc);
+        // Removing 25 out of 100 deposited
+
+        // debug::print( &get_balance(@hem_acc));
+        assert!(get_balance(@hem_acc) == 75, 1);
+
+        coin::destroy_burn_cap(burn);
+        coin::destroy_mint_cap(mint);
+    }
+
+    #[test(arg = @hem_acc, framework = @aptos_framework)]
+    fun transfer_fund(arg: signer, framework: signer) acquires Whitelist, FundStorage {
+        init_module(&arg);
+        let random_address2 = @0x9876;
+
+        let random_address3 = @hem_acc;
+        let random_address4 = @0x9822;
+
+        let vec = vector::empty<address>();
+        vector::push_back(&mut vec, random_address4);
+        vector::push_back(&mut vec, random_address2);
+        vector::push_back(&mut vec, random_address3);
+        bulk_add_to_whitelist(&arg, copy vec);
+
+        assert!(is_whitelisted(random_address4), 1);
+        assert!(is_whitelisted(random_address2), 1);
+        assert!(is_whitelisted(random_address3), 1);
+
+        let (burn, mint) = aptos_framework::aptos_coin::initialize_for_test(&framework);
+        let coin = coin::mint<AptosCoin>(1000000000, &mint);
+        account::create_account_for_test(signer::address_of(&arg));
+        coin::register<AptosCoin>(&arg);
+        coin::deposit(signer::address_of(&arg), coin);
+
+        deposit(&arg, 10000);
+        transfer_funds(&arg, @hem_acc, random_address4, 50);
+
+        assert!(get_balance(@hem_acc) == 9950, 1);
+        assert!(get_balance(random_address4) == 50, 1);
 
         coin::destroy_burn_cap(burn);
         coin::destroy_mint_cap(mint);
