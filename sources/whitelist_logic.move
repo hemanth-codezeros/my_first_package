@@ -1,6 +1,8 @@
 module Hem_Acc::whitelist_deposit {
     use std::signer;
     use std::vector;
+    use std::debug;
+    use std::string;
     use aptos_framework::account;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
@@ -128,7 +130,7 @@ module Hem_Acc::whitelist_deposit {
         while (i < length) {
             let address = vector::pop_back(&mut addresses);
             let (exists, index) = vector::index_of(&whitelist.addresses, &address);
-            assert!(!exists, NOT_PRESENT_IN_WHITELISTED);
+            assert!(exists, NOT_PRESENT_IN_WHITELISTED);
             vector::remove(&mut whitelist.addresses, index);
             let event = WhitelistEvent { address, added: false };
             0x1::event::emit(event);
@@ -271,4 +273,65 @@ module Hem_Acc::whitelist_deposit {
         };
         result
     }
+
+    #[test(arg = @Hem_Acc)]
+    fun add_addresses_to_whitelist(arg: signer) acquires Whitelist {
+        init_module(&arg);
+        let custom_address: address =
+            @0xb1f4c9f2d642d40de852b1bd68138143b95dfe8f8f3676adc7b8fd6f81a14441;
+        add_to_whitelist(&arg, custom_address);
+    }
+
+    #[test(arg = @Hem_Acc)]
+    fun remove_address_from_whitelist(arg: signer) acquires Whitelist {
+        init_module(&arg);
+        let custom_address: address =
+            @0xb1f4c9f2d642d40de852b1bd68138143b95dfe8f8f3676adc7b8fd6f81a14441;
+        add_to_whitelist(&arg, custom_address);
+        remove_from_whitelist(&arg, custom_address);
+    }
+
+    #[test(arg = @Hem_Acc)]
+    fun bulk_adding_and_removing_addresses(arg: signer) acquires Whitelist {
+        init_module(&arg);
+        let random_address1 = @0x1234567890ABCDEF;
+        let random_address2 = @0x9876543210FEDCBA;
+        let random_address3 = @0x98765430;
+        let random_address4 = @0x9876543;
+        let vec = vector::empty<address>();
+        vector::push_back(&mut vec, random_address1);
+        vector::push_back(&mut vec, random_address2);
+        vector::push_back(&mut vec, random_address3);
+        vector::push_back(&mut vec, random_address4);
+        debug::print(&vec);
+        bulk_add_to_whitelist(&arg, copy vec);
+        vector::pop_back(&mut vec);
+        vector::pop_back(&mut vec);
+
+        let utf8_message = string::utf8(b"After popping back addresses");
+        debug::print(&utf8_message);
+        debug::print(&vec);
+
+        bulk_remove_from_whitelist(&arg, vec);
+    }
+
+
+    #[test(arg = @Hem_Acc)]
+    fun deposit_fund(arg: signer) acquires Whitelist, FundStorage {
+        init_module(&arg);
+        let random_address1 = @0x1234567890ABCDEF;
+        let random_address2 = @0x9876543210FEDCBA;
+        let random_address3 = @Hem_Acc;
+
+         let vec = vector::empty<address>();
+        vector::push_back(&mut vec, random_address1);
+        vector::push_back(&mut vec, random_address2);
+        vector::push_back(&mut vec, random_address3);
+        bulk_add_to_whitelist(&arg, copy vec);
+
+        deposit(&arg, 100);
+
+
+    }
+
 }
