@@ -280,6 +280,7 @@ module Hem_Acc::whitelist_deposit {
         let custom_address: address =
             @0xb1f4c9f2d642d40de852b1bd68138143b95dfe8f8f3676adc7b8fd6f81a14441;
         add_to_whitelist(&arg, custom_address);
+        assert!(is_whitelisted(custom_address), 1);
     }
 
     #[test(arg = @Hem_Acc)]
@@ -315,23 +316,34 @@ module Hem_Acc::whitelist_deposit {
         bulk_remove_from_whitelist(&arg, vec);
     }
 
-
-    #[test(arg = @Hem_Acc)]
-    fun deposit_fund(arg: signer) acquires Whitelist, FundStorage {
+    #[test(arg = @Hem_Acc, framework = @aptos_framework)]
+    fun deposit_fund(arg: signer, framework: signer) acquires Whitelist, FundStorage {
         init_module(&arg);
         let random_address1 = @0x1234567890ABCDEF;
         let random_address2 = @0x9876543210FEDCBA;
         let random_address3 = @Hem_Acc;
 
-         let vec = vector::empty<address>();
+        let vec = vector::empty<address>();
         vector::push_back(&mut vec, random_address1);
         vector::push_back(&mut vec, random_address2);
         vector::push_back(&mut vec, random_address3);
         bulk_add_to_whitelist(&arg, copy vec);
 
+        assert!(is_whitelisted(random_address1), 1);
+        assert!(is_whitelisted(random_address2), 1);
+        assert!(is_whitelisted(random_address3), 1);
+
+
+
+        let (burn, mint) = aptos_framework::aptos_coin::initialize_for_test(&framework);
+        let coin = coin::mint<AptosCoin>(1000000000, &mint);
+        account::create_account_for_test(signer::address_of(&arg));
+        coin::register<AptosCoin>(&arg);
+        coin::deposit(signer::address_of(&arg), coin);
+
         deposit(&arg, 100);
 
-
+        coin::destroy_burn_cap(burn);
+        coin::destroy_mint_cap(mint);
     }
-
 }
