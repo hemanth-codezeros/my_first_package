@@ -402,7 +402,6 @@ module hem_acc::whitelist_deposit {
     fun transfer_fund(arg: signer, framework: signer) acquires Whitelist, FundStorage {
         init_module(&arg);
         let random_address2 = @0x9876;
-
         let random_address3 = @hem_acc;
         let random_address4 = @0x9822;
 
